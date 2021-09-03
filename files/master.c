@@ -18,26 +18,27 @@ int main(){
     int pid=fork();
     if(pid!=0){
         printf("please enter value\n");
-        int value, result;
-        scanf("%d",&value);
-        printf("begining to solve equations\n");
+        //char* value;
+        char result='c';
+        //scanf("%s",value);
         close(mastertoslave[READ]);
         close(slavetomaster[WRITE]);
-        write(mastertoslave[WRITE],&value,sizeof(int));
-        wait(&pid);
-        read(slavetomaster[READ],&result,sizeof(int));
-        printf("the result is: %d\n",result);
+        read(slavetomaster[READ],&result,sizeof(char));
+        printf("%c\n",result);
         printf("execution finished\n");
     }
     else{
         close(mastertoslave[WRITE]);
         close(slavetomaster[READ]);
-        int y;
-        read(mastertoslave[READ],&y,sizeof(int));
-        printf("the value is %d\n",y);
-        int result= y*5+9-2;
-        sleep(2);
-        write(slavetomaster[WRITE],&result,sizeof(int));
+        dup2(mastertoslave[READ],STDIN_FILENO);
+        dup2(slavetomaster[WRITE],STDOUT_FILENO);
+        close(mastertoslave[READ]);
+        close(slavetomaster[WRITE]);
+        if(execl("./slave","./slave",(char*) 0)==-1){
+            printf("error with execl\n");
+            return 2;
+        }
     }
+    wait(&pid);
     return 0;
 }
