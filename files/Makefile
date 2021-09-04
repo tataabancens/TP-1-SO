@@ -1,34 +1,27 @@
-GCC = gcc
+CC = gcc
 
-EXEC = master slave view
+EXEC = Master Slave View
 
 MASTER_O = master.o
 SLAVE_O = slave.o
 VIEW_O = view.o
 
-MASTER_C = master.c
-SLAVE_C = slave.c
-VIEW_C = view.c
+OBJS = $(MASTER_O) $(SLAVE_O) $(VIEW_O)
+
 
 all: $(EXEC)
 
-master: master.o
-	$(GCC) $(MASTER_O) -o Master
+Master: $(MASTER_O)
+	$(CC) $(MASTER_O) -o Master
 
-slave: slave.o
-	$(GCC) $(SLAVE_O) -o Slave
+Slave: $(SLAVE_O)
+	$(CC) $(SLAVE_O) -o Slave
 
-view: view.o
-	$(GCC) $(VIEW_O) -o View
+View: $(VIEW_O)
+	$(CC) $(VIEW_O) -o View
 
-master.o: master.c
-	$(GCC) -c $(MASTER_C)
-
-slave.o:
-	$(GCC) -c $(SLAVE_C)
-
-view.o:
-	$(GCC) -c $(VIEW_C)
+%.o: %.c
+	$(CC) -c $?
 
 clean:
-	rm -f $(EXEC) $(MASTER_O) $(SLAVE_O) $(VIEW_O)
+	rm -f $(EXEC) $(OBJS)
