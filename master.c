@@ -33,7 +33,7 @@ int getRunningSlaves(slave_t slaves[],int slaveCount);
 int main(int argc,char** argv){
 
     int totalTasks=argc-1,completedTasks=0,runningSlaves;
-    char buffer[BUFFER_SIZE]={0};
+    
     char** paths=argv;
     int slaveCount=SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
@@ -41,9 +41,10 @@ int main(int argc,char** argv){
     runningSlaves=getRunningSlaves(slaves,slaveCount);
     fd_set readSet;
     while(runningSlaves>0){
+        char buffer[BUFFER_SIZE]={0};
         FD_ZERO(&readSet);
-        int nfds=0;
-        for(int i=0;i<slaveCount;i++){
+        int nfds=0, i, j;
+        for(i=0;i<slaveCount;i++){
             slave_t slave=slaves[i];
             if (slave.flagEOF==0){
                 FD_SET(slaves[i].sender,&readSet);
@@ -55,7 +56,7 @@ int main(int argc,char** argv){
         if(retval==-1){
             HANDLE_ERROR("Error at select function");
         }
-        for(int j=0;j<slaveCount;j++){
+        for(j=0;j<slaveCount;j++){
             if(FD_ISSET(slaves[j].sender,&readSet)){
                 int bytesRead=read(slaves[j].sender,buffer,BUFFER_SIZE);
                 if(bytesRead==-1){
@@ -75,8 +76,8 @@ int main(int argc,char** argv){
 
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
 {
-    
-    for (int i = 0; i < dimSlaves; i++)
+    int i;
+    for (i = 0; i < dimSlaves; i++)
     {
         int masterToSlave[2],slaveToMaster[2];
         pipe(masterToSlave);
@@ -144,8 +145,8 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
     return 0;
 }
 int getRunningSlaves(slave_t slaves[],int slaveCount){
-    int result=0;
-    for(int i=0;i<slaveCount;i++){
+    int result=0, i;
+    for(i=0;i<slaveCount;i++){
         if(!slaves[i].flagEOF)
             result++;
     }
