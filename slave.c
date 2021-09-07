@@ -3,6 +3,6 @@
 #include <unistd.h>
 
 int main (int argc, char* argv[]){
-    putchar('h');
+    printf("PROCESS CHILD\n");
     return 0;
 }
