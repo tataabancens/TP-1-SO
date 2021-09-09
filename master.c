@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -8,9 +9,9 @@
 typedef struct
 {
     pid_t pid;
-    int sender;    // Devuelve resultados, slaveToMaster.
-    int receiver; // Manda tarea, masterToSlave.
-    int ntasks;        // Tareas siendo ejecutadas por el esclavo.
+    int sender;         // Devuelve resultados, slaveToMaster.
+    int receiver;       // Manda tarea, masterToSlave.
+    int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
 #define SLAVE_INIT 5
@@ -27,24 +28,30 @@ typedef struct
         exit(EXIT_FAILURE); \
     } while (0)
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[]);
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int getRunningSlaves(slave_t slaves[],int slaveCount);
+
 
 int main(int argc,char** argv){
 
-    int totalTasks=argc-1,completedTasks=0,runningSlaves;
-    
+    int totalTasks=argc-1, completedTasks=0, taskIndex = 1;
+    int pendingTasks = totalTasks;
     char** paths=argv;
     int slaveCount=SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
-    createSlaves(paths,slaveCount,slaves);
-    runningSlaves=getRunningSlaves(slaves,slaveCount);
+
+    createSlaves(paths,slaveCount,slaves, &taskIndex);
+
     fd_set readSet;
-    while(runningSlaves>0){
+    
+    while(completedTasks < totalTasks){
         char buffer[BUFFER_SIZE]={0};
+        
         FD_ZERO(&readSet);
         int nfds=0, i, j;
+
         for(i=0;i<slaveCount;i++){
+
             slave_t slave=slaves[i];
             if (slave.flagEOF==0){
                 FD_SET(slaves[i].sender,&readSet);
@@ -56,25 +63,37 @@ int main(int argc,char** argv){
         if(retval==-1){
             HANDLE_ERROR("Error at select function");
         }
-        for(j=0;j<slaveCount;j++){
-            if(FD_ISSET(slaves[j].sender,&readSet)){
-                int bytesRead=read(slaves[j].sender,buffer,BUFFER_SIZE);
-                if(bytesRead==-1){
-                HANDLE_ERROR("error at reading from slave");
+        for(j = 0; retval > 0 && j < slaveCount; j++){
+            if(FD_ISSET(slaves[j].sender, &readSet)){
+                
+                
+                int bytesRead = read(slaves[j].sender,buffer,BUFFER_SIZE);
+                if(bytesRead == -1){
+                    HANDLE_ERROR("error at reading from slave");
                 }
                 if(bytesRead==0){
                     slaves[j].flagEOF=1;
                 }
-                buffer[bytesRead]=0;
-                printf("%s\n",buffer);
+                printf("%s", buffer);
+
+                completedTasks++;
+                printf("\n Tasks Completadas: %d\n", completedTasks);
+                pendingTasks = totalTasks - completedTasks;
+
+                if(taskIndex < totalTasks){
+                    int dim = strlen(paths[taskIndex]);
+                    if((write(slaves[j].receiver, paths[taskIndex], dim)) == -1){
+                        HANDLE_ERROR("Error writing to slave");
+                    }
+                    taskIndex++;
+                }
             }
         }
-        //runningSlaves=getRunningSlaves(slaves,slaveCount);
     }
     return 0;
 }
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex)
 {
     int i;
     for (i = 0; i < dimSlaves; i++)
@@ -139,16 +158,8 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
         {
             HANDLE_ERROR("Error closing slave WRITE to master");
         }
-        if(pid>0)
-            slaves[i].pid = pid;
+        slaves[i].pid = pid;
+        (*taskIndex)++;
     }
     return 0;
-}
-int getRunningSlaves(slave_t slaves[],int slaveCount){
-    int result=0, i;
-    for(i=0;i<slaveCount;i++){
-        if(!slaves[i].flagEOF)
-            result++;
-    }
-    return result;   
 }
