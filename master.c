@@ -29,6 +29,7 @@ typedef struct
     } while (0)
 
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
+int endSlaves(slave_t slaves[], int slaveCount);
 
 int main(int argc, char** argv){
 
@@ -57,7 +58,7 @@ int main(int argc, char** argv){
                     nfds = slaves[i].sender;
             }
         }
-        int retval = select(nfds+1,&readSet,NULL,NULL,NULL);
+        int retval = select(nfds + 1, &readSet, NULL, NULL, NULL);
         if (retval == -1) {
             HANDLE_ERROR("Error at select function");
         }
@@ -70,7 +71,7 @@ int main(int argc, char** argv){
                     HANDLE_ERROR("error at reading from slave");
                 }
                 if (bytesRead == 0) {
-                    slaves[j].flagEOF=1;
+                    slaves[j].flagEOF = 1;
                 } else {
                     printf("%s", buffer);
 
@@ -84,12 +85,15 @@ int main(int argc, char** argv){
                             HANDLE_ERROR("Error writing to slave");
                         }
                         taskIndex++;
+                    } else {
+                        
                     }
                 }
-                
             }
         }
     }
+    endSlaves(slaves, slaveCount);
+
     return 0;
 }
 
@@ -154,4 +158,23 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex)
     }
 
     return 0;
+}
+
+int endSlaves(slave_t slaves[], int slaveCount) {
+    int i;
+    for (i = 0; i < slaveCount; i++) {
+        if (close(slaves[i].receiver) == -1) {
+            HANDLE_ERROR("Error closing reciever from slave");
+        }
+
+        if (close(slaves[i].sender) == -1) {
+            HANDLE_ERROR("Error closing sender from slave");
+        }
+
+        if (wait(NULL) == -1) {
+            HANDLE_ERROR("Error waiting for slave");
+        }
+        printf("Slave %d ended succsesfully\n", i);
+    }
+    
 }
