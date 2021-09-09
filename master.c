@@ -31,7 +31,12 @@ typedef struct
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int endSlaves(slave_t slaves[], int slaveCount);
 
+void sendNewTask(slave_t slave, char *path, int *taskIndex);
+
 int main(int argc, char** argv){
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdin, 0, _IONBF, 0);
 
     int totalTasks = argc - 1, completedTasks = 0, taskIndex = 1;
     int pendingTasks = totalTasks;
@@ -80,25 +85,17 @@ int main(int argc, char** argv){
                     pendingTasks = totalTasks - completedTasks;
 
                     if (taskIndex < totalTasks) {
-                        int dim = strlen(paths[taskIndex]);
-                        if ((write(slaves[j].receiver, paths[taskIndex], dim)) == -1) {
-                            HANDLE_ERROR("Error writing to slave");
-                        }
-                        taskIndex++;
-                    } else {
-                        
+                        sendNewTask(slaves[j], paths[taskIndex], &taskIndex);
                     }
                 }
             }
         }
     }
     endSlaves(slaves, slaveCount);
-
     return 0;
 }
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex)
-{
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex) {
     int i;
     char* slaveArguments[3];
     slaveArguments[0]=PATH_SLAVE;
@@ -176,5 +173,13 @@ int endSlaves(slave_t slaves[], int slaveCount) {
         }
         printf("Slave %d ended succsesfully\n", i);
     }
-    
+}
+
+void sendNewTask(slave_t slave, char *path, int *taskIndex) {
+    int dim = strlen(path);
+
+    if ((write(slave.receiver, path, dim)) == -1) {
+        HANDLE_ERROR("Error writing to slave");
+    }
+    (*taskIndex)++;
 }
