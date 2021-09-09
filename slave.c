@@ -13,12 +13,16 @@ int main(int argc, char* argv[]) {
 
     doTask(argv[1]);
 
-    char tasks[BUFFER_SIZE + 1] = {0};
+    char task[BUFFER_SIZE + 1] = {0};
     int dimRead;
-    while (read(STDIN_FILENO, tasks, sizeof(tasks)) != 0){
 
+    while ((dimRead = read(STDIN_FILENO, task, BUFFER_SIZE)) != 0) { 
+        if (dimRead == -1) {
+            printf("Error in read");
+        }
+        task[dimRead] = 0;
+        doTask(task);
     }
-
 
     return 0;
 }
