@@ -14,7 +14,7 @@ typedef struct
     int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
-#define SLAVE_INIT 5
+#define SLAVE_INIT 3
 #define SLAVE_COUNT(c) ((c<SLAVE_INIT)? c : SLAVE_INIT) 
 #define READ 0
 #define WRITE 1
@@ -31,7 +31,12 @@ typedef struct
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int endSlaves(slave_t slaves[], int slaveCount);
 
+void sendNewTask(slave_t slave, char *path, int *taskIndex);
+
 int main(int argc, char** argv){
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdin, 0, _IONBF, 0);
 
     int totalTasks = argc - 1, completedTasks = 0, taskIndex = 1;
     int pendingTasks = totalTasks;
@@ -65,7 +70,6 @@ int main(int argc, char** argv){
         for (j = 0; retval > 0 && j < slaveCount; j++) {
             if (FD_ISSET(slaves[j].sender, &readSet)) {
                 
-                
                 int bytesRead = read(slaves[j].sender, buffer, BUFFER_SIZE);
                 if (bytesRead == -1) {
                     HANDLE_ERROR("error at reading from slave");
@@ -76,29 +80,21 @@ int main(int argc, char** argv){
                     printf("%s", buffer);
 
                     completedTasks++;
-                    printf("\n Tasks Completadas: %d\n", completedTasks);
+                    printf("\nTasks Completadas: %d\n", completedTasks);
                     pendingTasks = totalTasks - completedTasks;
 
-                    if (taskIndex < totalTasks) {
-                        int dim = strlen(paths[taskIndex]);
-                        if ((write(slaves[j].receiver, paths[taskIndex], dim)) == -1) {
-                            HANDLE_ERROR("Error writing to slave");
-                        }
-                        taskIndex++;
-                    } else {
-                        
+                    if (taskIndex < totalTasks + 1) {
+                        sendNewTask(slaves[j], paths[taskIndex], &taskIndex);
                     }
                 }
             }
         }
     }
     endSlaves(slaves, slaveCount);
-
     return 0;
 }
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex)
-{
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex) {
     int i;
     char* slaveArguments[3];
     slaveArguments[0]=PATH_SLAVE;
@@ -170,11 +166,22 @@ int endSlaves(slave_t slaves[], int slaveCount) {
         if (close(slaves[i].sender) == -1) {
             HANDLE_ERROR("Error closing sender from slave");
         }
-
-        if (wait(NULL) == -1) {
-            HANDLE_ERROR("Error waiting for slave");
-        }
-        printf("Slave %d ended succsesfully\n", i);
     }
-    
+    for (i = 0; i < slaveCount; i++) {
+            if (wait(NULL) == -1) {
+                HANDLE_ERROR("Error waiting for slave");
+            }
+            printf("Slave %d ended succsesfully\n", i);
+    }
+}
+        
+
+
+void sendNewTask(slave_t slave, char *path, int *taskIndex) {
+    int dim = strlen(path);
+
+    if ((write(slave.receiver, path, dim)) == -1) {
+        HANDLE_ERROR("Error writing to slave");
+    }
+    (*taskIndex)++;
 }
