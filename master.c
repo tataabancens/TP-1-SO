@@ -1,26 +1,19 @@
 #include <stdio.h>
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <string.h>
 #include <sys/select.h>
 
 typedef struct
 {
     pid_t pid;
-    int receiver;     // Devuelve resultados, slaveToMaster.
-    int sender;   // Manda tarea, masterToSlave.
-    int ntasks;     // Tareas siendo ejecutadas por el esclavo.
+    int sender;         // Devuelve resultados, slaveToMaster.
+    int receiver;       // Manda tarea, masterToSlave.
+    int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
-typedef struct
-{
-    int totalTasks;
-    int taskCompleted;
-    char** paths;
-}taskCount_t;
-
 #define SLAVE_INIT 5
 #define SLAVE_COUNT(c) ((c<SLAVE_INIT)? c : SLAVE_INIT) 
 #define READ 0
@@ -35,61 +28,74 @@ typedef struct
         exit(EXIT_FAILURE); \
     } while (0)
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[]);
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int getRunningSlaves(slave_t slaves[],int slaveCount);
-void sendNewTask(int fileDescriptor,taskCount_t taskStructure,int slavesCount);
+
 
 int main(int argc,char** argv){
-    taskCount_t tasks;
-    tasks.totalTasks=argc-1;
-    tasks.taskCompleted=0; 
-    tasks.paths=argv;
-    int slaveCount=SLAVE_COUNT(tasks.totalTasks), pendingTasks;
+
+    int totalTasks=argc-1, completedTasks=0, taskIndex = 1;
+    int pendingTasks = totalTasks;
+    char** paths=argv;
+    int slaveCount=SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
-    createSlaves(tasks.paths,slaveCount,slaves);
+
+    createSlaves(paths,slaveCount,slaves, &taskIndex);
+
     fd_set readSet;
-    while(tasks.taskCompleted<tasks.totalTasks){
+    
+    while(completedTasks < totalTasks){
         char buffer[BUFFER_SIZE]={0};
+        
         FD_ZERO(&readSet);
         int nfds=0, i, j;
+
         for(i=0;i<slaveCount;i++){
+
             slave_t slave=slaves[i];
             if (slave.flagEOF==0){
-                FD_SET(slaves[i].receiver,&readSet);
-                if(nfds<=slaves[i].receiver)
-                    nfds=slaves[i].receiver;
+                FD_SET(slaves[i].sender,&readSet);
+                if(nfds<=slaves[i].sender)
+                    nfds=slaves[i].sender;
             }
         }
         int retval=select(nfds+1,&readSet,NULL,NULL,NULL);
         if(retval==-1){
             HANDLE_ERROR("Error at select function");
         }
-        for(j=0;j<slaveCount;j++){
-            if(FD_ISSET(slaves[j].receiver,&readSet)){
-                int bytesRead=read(slaves[j].receiver,buffer,BUFFER_SIZE);
-                pendingTasks=tasks.totalTasks-tasks.taskCompleted-slaveCount;
-                tasks.taskCompleted++;
-                if(pendingTasks>0){
-                    sendNewTask(slaves[j].receiver,tasks,slaveCount);
+        for(j = 0; retval > 0 && j < slaveCount; j++){
+            if(FD_ISSET(slaves[j].sender, &readSet)){
+                
+                
+                int bytesRead = read(slaves[j].sender,buffer,BUFFER_SIZE);
+                if(bytesRead == -1){
+                    HANDLE_ERROR("error at reading from slave");
                 }
-                else{
-                    close(slaves[j].receiver);
-                    close(slaves[j].sender);
+                if(bytesRead==0){
                     slaves[j].flagEOF=1;
-                    slaveCount--;
+                }else{
+                    printf("%s", buffer);
+
+                    completedTasks++;
+                    printf("\n Tasks Completadas: %d\n", completedTasks);
+                    pendingTasks = totalTasks - completedTasks;
+
+                    if(taskIndex < totalTasks){
+                        int dim = strlen(paths[taskIndex]);
+                        if((write(slaves[j].receiver, paths[taskIndex], dim)) == -1){
+                            HANDLE_ERROR("Error writing to slave");
+                        }
+                        taskIndex++;
+                    }
                 }
-                if(bytesRead==-1){
-                HANDLE_ERROR("error at reading from slave");
-                }
-                buffer[bytesRead]=0;
-                printf("%s\n",buffer); 
+                
             }
         }
     }
     return 0;
 }
 
-int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
+int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex)
 {
     int i;
     for (i = 0; i < dimSlaves; i++)
@@ -100,14 +106,14 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
         {
             HANDLE_ERROR("Pipe Error Master");
         }
-        slaves[i].sender = masterToSlave[WRITE];
+        slaves[i].receiver = masterToSlave[WRITE];
 
         pipe(slaveToMaster);
         if (pipe(slaveToMaster) < 0)
         {
             HANDLE_ERROR("Pipe Error Slave ");
         }
-        slaves[i].receiver = slaveToMaster[READ];
+        slaves[i].sender = slaveToMaster[READ];
         slaves[i].flagEOF = 0;
         int pid;
         if ((pid = fork()) == -1)
@@ -133,11 +139,11 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
             {
                 HANDLE_ERROR("Error dupping pipe");
             }
-            char* arguments[3];
-            arguments[0]=PATH_SLAVE;
-            arguments[1]=paths[i+1];
-            arguments[2]=NULL;
-            if (execv(PATH_SLAVE, arguments) < 0)
+            char* slaveArguments[3];
+            slaveArguments[0]=PATH_SLAVE;
+            slaveArguments[1]=paths[i+1];
+            slaveArguments[2]=NULL;
+            if (execv(PATH_SLAVE, slaveArguments) < 0)
             {
                 HANDLE_ERROR("Execv Error");
             }
@@ -154,13 +160,8 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[])
         {
             HANDLE_ERROR("Error closing slave WRITE to master");
         }
-        if(pid>0)
-            slaves[i].pid = pid;
+        slaves[i].pid = pid;
+        (*taskIndex)++;
     }
     return 0;
-}
-void sendNewTask(int fileDescriptor,taskCount_t taskStructure,int slavesCount){
-    int taskIndex=taskStructure.taskCompleted+slavesCount-1;
-    char* newTask=taskStructure.paths[taskIndex];
-    write(fileDescriptor,newTask,strlen(newTask));
 }
