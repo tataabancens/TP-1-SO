@@ -73,20 +73,22 @@ int main(int argc,char** argv){
                 }
                 if(bytesRead==0){
                     slaves[j].flagEOF=1;
-                }
-                printf("%s", buffer);
+                }else{
+                    printf("%s", buffer);
 
-                completedTasks++;
-                printf("\n Tasks Completadas: %d\n", completedTasks);
-                pendingTasks = totalTasks - completedTasks;
+                    completedTasks++;
+                    printf("\n Tasks Completadas: %d\n", completedTasks);
+                    pendingTasks = totalTasks - completedTasks;
 
-                if(taskIndex < totalTasks){
-                    int dim = strlen(paths[taskIndex]);
-                    if((write(slaves[j].receiver, paths[taskIndex], dim)) == -1){
-                        HANDLE_ERROR("Error writing to slave");
+                    if(taskIndex < totalTasks){
+                        int dim = strlen(paths[taskIndex]);
+                        if((write(slaves[j].receiver, paths[taskIndex], dim)) == -1){
+                            HANDLE_ERROR("Error writing to slave");
+                        }
+                        taskIndex++;
                     }
-                    taskIndex++;
                 }
+                
             }
         }
     }
