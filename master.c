@@ -14,7 +14,8 @@ typedef struct
     int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
-#define SLAVE_INIT 3
+#define SLAVE_INIT 5
+#define RESULT_PATH "result.txt"
 #define SLAVE_COUNT(c) ((c<SLAVE_INIT)? c : SLAVE_INIT) 
 #define READ 0
 #define WRITE 1
@@ -43,6 +44,7 @@ int main(int argc, char** argv){
     char** paths = argv;
     int slaveCount = SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
+    FILE* fresult=fopen(RESULT_PATH,"w");
 
     createSlaves(paths,slaveCount,slaves, &taskIndex);
 
@@ -77,10 +79,10 @@ int main(int argc, char** argv){
                 if (bytesRead == 0) {
                     slaves[j].flagEOF = 1;
                 } else {
-                    printf("%s", buffer);
+                    buffer[bytesRead]='\n';
+                    fwrite(buffer,sizeof(char),strlen(buffer),fresult);
 
                     completedTasks++;
-                    printf("\nTasks Completadas: %d\n", completedTasks);
                     pendingTasks = totalTasks - completedTasks;
 
                     if (taskIndex < totalTasks + 1) {
@@ -91,6 +93,7 @@ int main(int argc, char** argv){
         }
     }
     endSlaves(slaves, slaveCount);
+    printf("all tasks completed\n");
     return 0;
 }
 
@@ -171,8 +174,8 @@ int endSlaves(slave_t slaves[], int slaveCount) {
             if (wait(NULL) == -1) {
                 HANDLE_ERROR("Error waiting for slave");
             }
-            printf("Slave %d ended succsesfully\n", i);
     }
+    return 0;
 }
         
 
