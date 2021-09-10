@@ -14,7 +14,7 @@ typedef struct
     int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
-#define SLAVE_INIT 5
+#define SLAVE_INIT 2
 #define RESULT_PATH "result.txt"
 #define SLAVE_COUNT(c) ((c<SLAVE_INIT)? c : SLAVE_INIT) 
 #define READ 0
