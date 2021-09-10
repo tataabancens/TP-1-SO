@@ -1,10 +1,8 @@
-#include <stdio.h>
+
 #include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include "shared_memory.h"
 
 typedef struct
 {
@@ -14,23 +12,21 @@ typedef struct
     int ntasks;         // Tareas siendo ejecutadas por el esclavo.
     int flagEOF;
 } slave_t;
-#define SLAVE_INIT 5
+#define SLAVE_INIT 2
 #define RESULT_PATH "result.txt"
 #define SLAVE_COUNT(c) ((c<SLAVE_INIT)? c : SLAVE_INIT) 
 #define READ 0
 #define WRITE 1
+#define WRITE_ONLY 00200
 #define PATH_SLAVE "./Slave"
 #define INITIAL_TASKS 1
-#define BUFFER_SIZE 4000
-#define HANDLE_ERROR(msg)   \
-    do                      \
-    {                       \
-        perror(msg);        \
-        exit(EXIT_FAILURE); \
-    } while (0)
+#define BUFFER_SIZE 4096
+
+
 
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int endSlaves(slave_t slaves[], int slaveCount);
+void writeResults(sem_t* semaphore,char* buffer,FILE* file, char* shm_pointer);
 
 void sendNewTask(slave_t slave, char *path, int *taskIndex);
 
@@ -40,11 +36,15 @@ int main(int argc, char** argv){
     setvbuf(stdin, 0, _IONBF, 0);
 
     int totalTasks = argc - 1, completedTasks = 0, taskIndex = 1;
-    int pendingTasks = totalTasks;
     char** paths = argv;
     int slaveCount = SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
     FILE* fresult=fopen(RESULT_PATH,"w");
+    sem_t sem;
+    init_semaphore(&sem,1,0);
+    int shm_fd=open_shared_mem_object(O_RDWR | O_CREAT,WRITE_ONLY);
+    extend_memory_object(shm_fd,BLOCK_SIZE);
+    void* shm_ptr=map_shared_memory(NULL,BLOCK_SIZE,PROT_WRITE,MAP_SHARED,shm_fd,0);
 
     createSlaves(paths,slaveCount,slaves, &taskIndex);
 
@@ -80,10 +80,8 @@ int main(int argc, char** argv){
                     slaves[j].flagEOF = 1;
                 } else {
                     buffer[bytesRead]='\n';
-                    fwrite(buffer,sizeof(char),strlen(buffer),fresult);
-
+                    writeResults(&sem,buffer,fresult,(char*) shm_ptr);
                     completedTasks++;
-                    pendingTasks = totalTasks - completedTasks;
 
                     if (taskIndex < totalTasks + 1) {
                         sendNewTask(slaves[j], paths[taskIndex], &taskIndex);
@@ -92,8 +90,9 @@ int main(int argc, char** argv){
             }
         }
     }
+    destroy_semaphore(&sem);
     endSlaves(slaves, slaveCount);
-    printf("all tasks completed\n");
+    close(shm_fd);
     return 0;
 }
 
@@ -158,7 +157,12 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex) {
 
     return 0;
 }
-
+void writeResults(sem_t* semaphore,char* buffer,FILE* file, char* shm_pointer){
+    int length=strlen(buffer);
+    //memcpy(shm_pointer,buffer,length);
+    //post_semaphore(semaphore);
+    fwrite(buffer,sizeof(char),length,file);
+}
 int endSlaves(slave_t slaves[], int slaveCount) {
     int i;
     for (i = 0; i < slaveCount; i++) {
