@@ -26,6 +26,21 @@ void* map_shared_memory(int prot,int flags, int fd, off_t offset){
     return ret;
 }
 
+void unmap_shared_memory(void* addr,size_t len){
+    if(munmap(addr, len) == SYS_FAILURE)
+    {
+        HANDLE_ERROR("error at unmapping memory");
+    }
+}
+
+
+void unlink_shared_memory( const char *name){
+    if(shm_unlink(name) == SYS_FAILURE)
+    {
+        HANDLE_ERROR("error with unlink memory");
+    }
+}
+
 void init_semaphore(sem_t *semaphore, int pshared, unsigned int value){
     if(sem_init(semaphore, pshared, value) == SYS_FAILURE)
     {

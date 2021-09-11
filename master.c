@@ -26,8 +26,8 @@ typedef struct
 
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int endSlaves(slave_t slaves[], int slaveCount);
-void writeResults(sem_t* semaphore,char* buffer,FILE* file, shmem_t* shm_pointer);
-void initialize(sem_t* semaphore,shmem_t* share_memory,int totalTasks);
+void writeResults(char* buffer,FILE* file, shmem_t* shm_pointer);
+shmem_t* initialize(int totalTasks);
 
 void sendNewTask(slave_t slave, char *path, int *taskIndex);
 
@@ -37,15 +37,8 @@ int main(int argc, char** argv){
     char** paths = argv;
     int slaveCount = SLAVE_COUNT(totalTasks);
     slave_t slaves[slaveCount];
-    sem_t sem;
-    shmem_t shm_ptr;
     FILE* fresult=fopen(RESULT_PATH,"w");
-    initialize(&sem,&shm_ptr,totalTasks);
-    /*FILE* fresult=fopen(RESULT_PATH,"w");
-    sem_t sem;
-    init_semaphore(&sem,1,0);
-    int shm_fd=open_shared_mem_object(O_RDWR | O_CREAT, S_IWUSR);
-    shmem_t* shm_ptr=(shmem_t*) map_shared_memory(PROT_WRITE,MAP_SHARED,shm_fd,0);*/
+    shmem_t* shm_ptr=initialize(totalTasks);
     printf("%i\n",totalTasks);
     createSlaves(paths,slaveCount,slaves, &taskIndex);
 
@@ -81,7 +74,7 @@ int main(int argc, char** argv){
                     slaves[j].flagEOF = 1;
                 } else {
                     buffer[bytesRead]='\n';
-                    writeResults(&sem,buffer,fresult,&shm_ptr);
+                    writeResults(buffer,fresult,shm_ptr);
                     completedTasks++;
 
                     if (taskIndex < totalTasks + 1) {
@@ -91,8 +84,10 @@ int main(int argc, char** argv){
             }
         }
     }
-    destroy_semaphore(&sem);
     endSlaves(slaves, slaveCount);
+    destroy_semaphore(&shm_ptr->sem1);
+    unmap_shared_memory(shm_ptr,sizeof(shmem_t));
+    unlink_shared_memory(SHRD_MEM_OBJ);
     return 0;
 }
 
@@ -157,7 +152,7 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex) {
 
     return 0;
 }
-void initialize(sem_t* semaphore,shmem_t* share_memory,int totalTasks){
+shmem_t* initialize(int totalTasks){
 
     if (setvbuf(stdout, NULL, _IONBF, 0) != 0)
     {
@@ -168,15 +163,18 @@ void initialize(sem_t* semaphore,shmem_t* share_memory,int totalTasks){
         HANDLE_ERROR("Error in Setvbuf");
     }
 
-    init_semaphore(semaphore,1,1);
     int shm_fd=open_shared_mem_object(O_RDWR | O_CREAT, S_IWUSR);
-    share_memory=(shmem_t*) map_shared_memory(PROT_WRITE,MAP_SHARED,shm_fd,0);
+    shmem_t* share_memory=(shmem_t*) map_shared_memory(PROT_WRITE,MAP_SHARED,shm_fd,0);
+    init_semaphore(&share_memory->sem1,1,1);
+    return share_memory;
 }
-void writeResults(sem_t* semaphore,char* buffer,FILE* file, shmem_t* shm_pointer){
+void writeResults(char* buffer,FILE* file, shmem_t* shm_pointer){
     int length=strlen(buffer);
-    //memcpy(shm_pointer,buffer,length);
-    //post_semaphore(semaphore);
     fwrite(buffer,sizeof(char),length,file);
+   // wait_semaphore(&shm_pointer->sem1);
+    shm_pointer->cnt=length;
+    memcpy(&shm_pointer->buf,buffer,length);
+   // post_semaphore(&shm_pointer->sem1);
 }
 int endSlaves(slave_t slaves[], int slaveCount) {
     int i;
