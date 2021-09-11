@@ -2,8 +2,8 @@
 #include "shared_memory.h"
 
 int main (int argc, char* argv[]){
-
-    /*
+    
+    
     if (setvbuf(stdout, NULL, _IONBF, 0) != 0)
     {
         HANDLE_ERROR("Error in Setvbuf");
@@ -12,17 +12,19 @@ int main (int argc, char* argv[]){
     {
         HANDLE_ERROR("Error in Setvbuf");
     }
-   
+    int shm_fdr=open_shared_mem_object(O_RDWR, S_IRUSR | S_IWUSR);
+    shmem_t* shm_ptr=(shmem_t*)map_shared_memory(PROT_READ,MAP_SHARED,shm_fdr,0);
     int tasksSize = 0;
     if (argc - 1 == 0) // Pipe
     {
-        char tasksRead[BLOCK_SIZE]={0};
-        int bytesRead;
-        if ((bytesRead = read(STDIN_FILENO, tasksRead, 20)) == -1)
-            HANDLE_ERROR("Error in read from pipe in vision");
-        tasksRead[bytesRead] = 0;
-        tasksSize = strtol(tasksRead, NULL, 10);
-    }*/
+        char buffer[100]={0};
+        int readBytes=read(STDIN_FILENO,buffer,100);
+        if(readBytes<0){
+            HANDLE_ERROR("Error at reading from stdin of View proccess");
+        }
+        tasksSize = atoi(buffer);
+        printf("%d",tasksSize);
+    }
     /*else if (argc - 1 == 1) // Parametro
     {
         tasksSize = strtol(argv[1], NULL, 10);

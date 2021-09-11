@@ -23,8 +23,8 @@ Master: $(MASTER_O) $(LIB_O) $(LIB_H)
 Slave: $(SLAVE_O) $(LIB_O) $(LIB_H)
 	$(CC) $(CFLAGS) $(SLAVE_O) -o Slave $(GCCLIBS)
 
-View: $(VIEW_O) $(SHARED_MEM_O) $(LIB_O) $(LIB_H)
-	$(CC) $(CFLAGS) $(VIEW_O) $(SHARED_MEM_O) -o View $(GCCLIBS)
+View: $(VIEW_O) $(LIB_O) $(LIB_H)
+	$(CC) $(CFLAGS) $(VIEW_O) $(LIB_O) -o View $(GCCLIBS)
 
 $(LIB_O): $(LIB_C) $(LIB_H)
 	$(CC) $(CFLAGS) -c $(LIB_C) $(GCCLIBS)	
