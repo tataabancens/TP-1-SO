@@ -45,6 +45,39 @@ void deleteSharedMem(shmem_t *shmem) {
     }
 }
 
+shmem_t joinSharedMem(char* name, int size) {
+
+    shmem_t toRet;
+    strcpy(toRet.name, name);
+    toRet.rIndex = 0;
+    toRet.rIndex = 0;
+    toRet.size = size;
+    if ((toRet.fd = (shm_open(name, O_RDONLY, 0))) == -1) {
+        HANDLE_ERROR("Error opening shmem in vision");
+    }    
+    if((toRet.address = (mmap(NULL, sizeof(4), PROT_READ, MAP_SHARED, toRet.fd, 0))) == MAP_FAILED) {
+        HANDLE_ERROR("error at mapping shared memory");
+    }
+
+    return toRet;
+}
+char *readSharedMem(shmem_t* shmem) {
+    char* toRet = shmem->address + shmem->rIndex;
+    int size = strlen(toRet);
+    shmem->rIndex += size + 3;
+    return toRet;
+}
+
+void closeSharedMed(shmem_t *shmem) {
+    int fd = shmem->fd;
+    if (munmap(shmem->address, shmem->size) == SYS_FAILURE) {
+        HANDLE_ERROR("error at unmapping memory");
+    }
+    if (close(fd) == -1) {
+        HANDLE_ERROR("Error in close shm");
+    }
+}
+
 
 void init_semaphore(sem_t *semaphore, int pshared, unsigned int value){
     if(sem_init(semaphore, pshared, value) == SYS_FAILURE)

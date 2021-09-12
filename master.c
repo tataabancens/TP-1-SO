@@ -43,7 +43,6 @@ int main(int argc, char** argv){
 
     initialize(&shmem, totalTasks);
 
-    
     createSlaves(paths,slaveCount,slaves, &taskIndex);
 
     fd_set readSet;
@@ -89,6 +88,7 @@ int main(int argc, char** argv){
         }
     }
     endSlaves(slaves, slaveCount);
+    deleteSharedMem(&shmem);
     // destroy_semaphore(&shm_ptr->sem1);
     // unmap_shared_memory(shmem,sizeof(shmem_t));
     // unlink_shared_memory(SHRD_MEM_OBJ);
@@ -176,7 +176,7 @@ void writeResults(char* buffer,FILE* file, shmem_t* shmem) {
 
     fwrite(buffer,sizeof(char),length,file);
 
-    writeSharedMem(&shmem, buffer, length, 3);
+    writeSharedMem(shmem, buffer, length, 3);
 }
 
 int endSlaves(slave_t slaves[], int slaveCount) {

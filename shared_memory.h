@@ -18,6 +18,8 @@
 
 typedef struct {
     char name[FILENAME_MAX];
+    int fd;
+    int size;
     int rIndex;
     int wIndex;
     char* address;
@@ -25,8 +27,11 @@ typedef struct {
 
 shmem_t createSharedMem(char* name, int size);
 void writeSharedMem(shmem_t *shmem, char* buffer, int size, int offset);
-void unmap_shared_memory(void* addr,size_t len);
-void unlink_shared_memory( const char *name);
+void deleteSharedMem(shmem_t *shmem);
+shmem_t joinSharedMem(char* name, int size);
+char *readSharedMem(shmem_t *shmem);
+void closeSharedMed(shmem_t *shmem);
+
 
 void init_semaphore(sem_t *semaphore, int pshared, unsigned int value);
 void wait_semaphore(sem_t *semaphore);
