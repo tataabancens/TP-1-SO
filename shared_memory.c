@@ -1,30 +1,34 @@
-
 #include "shared_memory.h"
 
+shmem_t createSharedMem(char* name, int size) {
 
-int open_shared_mem_object(int oflag, mode_t mode)
-{
-    int fd = shm_open(SHRD_MEM_OBJ, oflag, mode);
-    if(fd == SYS_FAILURE)
-    {
+    shmem_t toRet;
+    toRet.rIndex = 0;
+    toRet.wIndex = 0;
+    strcpy(toRet.name, name);
+
+    int fd = shm_open(SHRD_MEM_OBJ, O_CREAT | O_RDWR, S_IWUSR);
+
+    if (fd == SYS_FAILURE) {
         HANDLE_ERROR("error at creating shared memory object");
     }
-    if(ftruncate(fd,sizeof(shmem_t))==SYS_FAILURE){
-
+    if (ftruncate(fd, size) == SYS_FAILURE) {
         HANDLE_ERROR("error at extending memory object");
     }
-    return fd;
-}
 
-void* map_shared_memory(int prot,int flags, int fd, off_t offset){
-    
-    void *ret = mmap(NULL, sizeof(4), prot, flags, fd, offset);    
-    if(ret == MAP_FAILED)
-    {
+    toRet.address = mmap(NULL, sizeof(4), PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);    
+    if(toRet.address == MAP_FAILED) {
         HANDLE_ERROR("error at mapping shared memory");
     }
-    return ret;
+
+    return toRet;
 }
+
+void writeSharedMem(shmem_t *shmem, char* buffer, int size, int offset) {
+    memcpy(shmem->address + shmem->wIndex, buffer, size + 1);
+    shmem->wIndex += size + offset;
+}
+
 
 void unmap_shared_memory(void* addr,size_t len){
     if(munmap(addr, len) == SYS_FAILURE)

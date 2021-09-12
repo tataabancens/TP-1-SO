@@ -12,8 +12,8 @@ int main (int argc, char* argv[]){
     {
         HANDLE_ERROR("Error in Setvbuf");
     }
-    int shm_fdr=open_shared_mem_object(O_RDWR, S_IRUSR | S_IWUSR);
-    shmem_t* shm_ptr=(shmem_t*)map_shared_memory(PROT_READ,MAP_SHARED,shm_fdr,0);
+    // int shm_fdr=open_shared_mem_object(O_RDWR, S_IRUSR | S_IWUSR);
+    // shmem_t* shm_ptr=(shmem_t*)map_shared_memory(PROT_READ,MAP_SHARED,shm_fdr,0);
     int tasksSize = 0;
     if (argc - 1 == 0) // Pipe
     {
@@ -41,7 +41,7 @@ int main (int argc, char* argv[]){
     {
         char result[BLOCK_SIZE]={0};
         //wait_semaphore(&shm_ptr->sem1);
-        memcpy(result,shm_ptr->buf,shm_ptr->cnt);
+        // memcpy(result,shm_ptr->buf,shm_ptr->cnt);
         int cantRead = strlen(result);
         if (cantRead > 0)
             i++;
