@@ -5,18 +5,19 @@ shmem_t createSharedMem(char* name, int size) {
     shmem_t toRet;
     toRet.rIndex = 0;
     toRet.wIndex = 0;
+    toRet.size = size;
     strcpy(toRet.name, name);
 
-    int fd = shm_open(SHRD_MEM_OBJ, O_CREAT | O_RDWR, S_IWUSR);
+    toRet.fd = shm_open(SHRD_MEM_OBJ, O_CREAT | O_RDWR, S_IWUSR);
 
-    if (fd == SYS_FAILURE) {
+    if (toRet.fd == SYS_FAILURE) {
         HANDLE_ERROR("error at creating shared memory object");
     }
-    if (ftruncate(fd, size) == SYS_FAILURE) {
+    if (ftruncate(toRet.fd, size) == SYS_FAILURE) {
         HANDLE_ERROR("error at extending memory object");
     }
 
-    toRet.address = mmap(NULL, sizeof(4), PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);    
+    toRet.address = mmap(NULL, sizeof(4), PROT_WRITE | PROT_READ, MAP_SHARED, toRet.fd, 0);    
     if(toRet.address == MAP_FAILED) {
         HANDLE_ERROR("error at mapping shared memory");
     }
@@ -29,21 +30,21 @@ void writeSharedMem(shmem_t *shmem, char* buffer, int size, int offset) {
     shmem->wIndex += size + offset;
 }
 
+void deleteSharedMem(shmem_t *shmem) {
 
-void unmap_shared_memory(void* addr,size_t len){
-    if(munmap(addr, len) == SYS_FAILURE)
-    {
+    int fd = shmem->fd;
+    char *name = shmem->name;
+    if (munmap(shmem->address, shmem->size) == SYS_FAILURE) {
         HANDLE_ERROR("error at unmapping memory");
     }
-}
-
-
-void unlink_shared_memory( const char *name){
-    if(shm_unlink(name) == SYS_FAILURE)
-    {
+    if (shm_unlink(name) == SYS_FAILURE) {
         HANDLE_ERROR("error with unlink memory");
     }
+    if (close(fd) == -1) {
+        HANDLE_ERROR("Error in close shm");
+    }
 }
+
 
 void init_semaphore(sem_t *semaphore, int pshared, unsigned int value){
     if(sem_init(semaphore, pshared, value) == SYS_FAILURE)
