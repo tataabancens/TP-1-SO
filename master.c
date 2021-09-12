@@ -26,8 +26,8 @@ typedef struct
 
 int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex);
 int endSlaves(slave_t slaves[], int slaveCount);
-void writeResults(char* buffer,FILE* file, shmem_t* shm_pointer);
-void initialize(shmem_t *shmem, int totalTasks);
+void writeResults(char* buffer,FILE* file, shmem_t* shm_pointer, t_sem* sem);
+void initialize(shmem_t *shmem, t_sem* sem ,int totalTasks);
 
 void sendNewTask(slave_t slave, char *path, int *taskIndex);
 
@@ -40,10 +40,11 @@ int main(int argc, char** argv){
     FILE* fresult=fopen(RESULT_PATH,"w");
 
     shmem_t shmem;
+    t_sem sem;
 
-    initialize(&shmem, totalTasks);
+    initialize(&shmem, &sem, totalTasks);
 
-    createSlaves(paths,slaveCount,slaves, &taskIndex);
+    createSlaves(paths, slaveCount, slaves, &taskIndex);
 
     fd_set readSet;
     
@@ -77,7 +78,7 @@ int main(int argc, char** argv){
                     slaves[j].flagEOF = 1;
                 } else {
                     buffer[bytesRead]='\n';
-                    writeResults(buffer, fresult, &shmem);
+                    writeResults(buffer, fresult, &shmem, &sem);
                     completedTasks++;
 
                     if (taskIndex < totalTasks + 1) {
@@ -89,9 +90,7 @@ int main(int argc, char** argv){
     }
     endSlaves(slaves, slaveCount);
     deleteSharedMem(&shmem);
-    // destroy_semaphore(&shm_ptr->sem1);
-    // unmap_shared_memory(shmem,sizeof(shmem_t));
-    // unlink_shared_memory(SHRD_MEM_OBJ);
+    destroySem(&sem);
     return 0;
 }
 
@@ -156,7 +155,7 @@ int createSlaves(char** paths,int dimSlaves, slave_t slaves[], int *taskIndex) {
 
     return 0;
 }
-void initialize(shmem_t *shmem, int totalTasks) {
+void initialize(shmem_t *shmem, t_sem *sem, int totalTasks) {
 
     if (setvbuf(stdout, NULL, _IONBF, 0) != 0) {
         HANDLE_ERROR("Error in Setvbuf");
@@ -166,17 +165,20 @@ void initialize(shmem_t *shmem, int totalTasks) {
     }
 
     printf("%d\n",totalTasks);
-    *shmem = createSharedMem(SHRD_MEM_OBJ, totalTasks * BUFFER_SIZE);
+    *shmem = createSharedMem(SHRD_MEM_OBJ, (totalTasks) * BUFFER_SIZE);
+    *sem = openSem(SEM_OBJ);
 
 }
 
-void writeResults(char* buffer,FILE* file, shmem_t* shmem) {
+void writeResults(char* buffer,FILE* file, shmem_t* shmem, t_sem* sem) {
     
     int length = strlen(buffer);
 
-    fwrite(buffer,sizeof(char),length,file);
+    fwrite(buffer, sizeof(char), length, file);
 
     writeSharedMem(shmem, buffer, length, 3);
+    
+    postSem(sem);
 }
 
 int endSlaves(slave_t slaves[], int slaveCount) {

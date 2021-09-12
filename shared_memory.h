@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 
 #define SHRD_MEM_OBJ "/SHM"
+#define SEM_OBJ "/SEM"
 #define BLOCK_SIZE 4096
 #define SYS_FAILURE (-1)
 
@@ -33,10 +34,16 @@ char *readSharedMem(shmem_t *shmem);
 void closeSharedMed(shmem_t *shmem);
 
 
-void init_semaphore(sem_t *semaphore, int pshared, unsigned int value);
-void wait_semaphore(sem_t *semaphore);
-void post_semaphore(sem_t *semaphore);
-void destroy_semaphore(sem_t* semaphore);
+typedef struct {
+    sem_t *access;
+    char name[250];
+} t_sem;
+
+t_sem openSem(char* name);
+void waitSem(t_sem *sem);
+void postSem(t_sem *sem);
+void closeSem(t_sem *sem);
+void destroySem(t_sem* sem);
 
 #define HANDLE_ERROR(msg)   \
     do                      \
